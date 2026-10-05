@@ -1,28 +1,42 @@
 {
   "name": "openwear",
-  "version": "1.0.0",
-  "description": "Universal open-source wearable & health telemetry hub connecting Apple Health, Google Fit, Strava, Garmin, and BLE smartwatches with AI-driven biometric analytics.",
+  "version": "0.2.0",
+  "description": "Local-first, open-source wearable data dashboard: Apple Health, Google Fit, Strava, GPX/TCX and Web Bluetooth, plus a toolkit for decoding budget smartwatches.",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test"
   },
   "keywords": [
-    "openwear",
+    "wearables",
     "smartwatch",
-    "health-telemetry",
     "apple-health",
     "google-fit",
     "strava",
+    "gpx",
+    "tcx",
     "web-bluetooth",
-    "wearables",
-    "ai-health",
-    "codex-oss"
+    "heart-rate",
+    "hrv",
+    "boat",
+    "local-first"
   ],
   "author": "Favaz",
   "license": "MIT",
   "devDependencies": {
     "vite": "^8.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/favazmk/openwear.git"
+  },
+  "bugs": {
+    "url": "https://github.com/favazmk/openwear/issues"
+  },
+  "homepage": "https://github.com/favazmk/openwear#readme",
+  "engines": {
+    "node": ">=20.19"
   }
 }
