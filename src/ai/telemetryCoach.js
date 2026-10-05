@@ -1,206 +1,126 @@
 /**
- * OpenWear - AI Health & Telemetry Coach
- * Analyzes multi-vendor biometric time-series data, generates recovery forecasts,
- * detects physiological anomalies, and interfaces with OpenAI Codex / GPT models.
+ * OpenWear - AI coach
+ *
+ * Bring-your-own OpenAI key: entered in the UI, kept in this browser's
+ * localStorage, sent only to api.openai.com. Never put a key in a VITE_
+ * env var — Vite inlines those into the public bundle.
+ * Without a key, a small rule-based coach answers from the same data.
  */
 
+import * as storage from '../lib/storage.js';
+
+const fmt = (v, unit = '') => (v == null ? 'not available' : `${v}${unit}`);
+const hm = (min) => (min == null ? 'not available' : `${Math.floor(min / 60)}h ${min % 60}m`);
+
+/** Plain-text summary of the snapshot for the model. Only real values. */
+export function describeSnapshot(s, recovery) {
+  const v = s.vitals;
+  const lines = [
+    `Source: ${s.deviceName}${s.isDemo ? ' (synthetic demo data)' : ''}; latest day with data: ${s.dayKey ?? 'none'}`,
+    `Heart rate: ${fmt(v.heartRate, ' bpm')}; resting: ${fmt(v.restingHeartRate, ' bpm')} (14-day baseline ${fmt(v.rhrBaseline && Math.round(v.rhrBaseline), ' bpm')})`,
+    `HRV${v.hrvMethod ? ` (${v.hrvMethod})` : ''}: ${fmt(v.hrv, ' ms')} (14-day baseline ${fmt(v.hrvBaseline && Math.round(v.hrvBaseline), ' ms')})`,
+    `SpO2: ${fmt(v.spo2, '%')}`,
+    `Steps: ${fmt(s.activity.steps)}; distance: ${fmt(s.activity.distanceKm, ' km')}; active energy: ${fmt(s.activity.activeCalories, ' kcal')}`,
+    `Sleep: ${hm(s.sleep?.totalMinutes)} (deep ${fmt(s.sleep?.deepMinutes, 'm')}, REM ${fmt(s.sleep?.remMinutes, 'm')})`,
+    `Recovery score: ${recovery ? `${recovery.score}/100 (${recovery.status}; based on ${recovery.basedOn.join(', ')})` : 'not enough data'}`,
+    `Recent workouts: ${JSON.stringify(s.recentWorkouts)}`
+  ];
+  return lines.join('\n');
+}
+
 export class TelemetryCoach {
-  constructor(apiKey = null) {
-    this.apiKey = apiKey || (typeof process !== 'undefined' ? process.env?.VITE_OPENAI_API_KEY : null);
-    this.chatHistory = [];
+  get settings() {
+    return storage.load('ai', { apiKey: '', model: 'gpt-4o-mini' });
   }
 
-  setApiKey(key) {
-    this.apiKey = key;
+  saveSettings({ apiKey, model }) {
+    storage.save('ai', { apiKey: apiKey.trim(), model: model.trim() || 'gpt-4o-mini' });
   }
 
-  /**
-   * Perform comprehensive automated physiological telemetry audit
-   */
-  analyzeTelemetry(telemetry, recoveryInfo) {
-    const { vitals, sleep, activity, recentWorkouts } = telemetry;
-    const anomalies = [];
-    const insights = [];
-
-    // 1. HRV Autonomic Tone Check
-    if (vitals.hrv < 45) {
-      anomalies.push({
-        type: 'warning',
-        title: 'Suppressed Autonomic Tone (HRV)',
-        description: `HRV dropped to ${vitals.hrv}ms. Suggests sympathetic nervous system overload, insufficient sleep recovery, or latent immune response.`
-      });
-    } else if (vitals.hrv >= 65) {
-      insights.push({
-        type: 'positive',
-        title: 'High Parasympathetic Dominance',
-        description: `HRV is robust at ${vitals.hrv}ms. High cardiovascular resilience and readiness for threshold efforts.`
-      });
-    }
-
-    // 2. Resting Heart Rate Drift
-    if (vitals.restingHeartRate > 68) {
-      anomalies.push({
-        type: 'caution',
-        title: 'Elevated Resting Heart Rate',
-        description: `Resting HR is elevated (+${vitals.restingHeartRate - 60} bpm above optimal baseline). Monitor hydration and evening screen exposure.`
-      });
-    }
-
-    // 3. Sleep Architecture Analysis
-    const deepPercent = Math.round((sleep.deepMinutes / sleep.totalMinutes) * 100);
-    const remPercent = Math.round((sleep.remMinutes / sleep.totalMinutes) * 100);
-
-    if (deepPercent < 15) {
-      anomalies.push({
-        type: 'warning',
-        title: 'Deep Sleep Deficit',
-        description: `Deep sleep was only ${deepPercent}% (${sleep.deepMinutes}m). Physical muscular repair and growth hormone secretion may be impaired.`
-      });
-    } else {
-      insights.push({
-        type: 'positive',
-        title: 'Optimal Deep Restoration',
-        description: `Achieved ${sleep.deepMinutes}m of Slow-Wave Sleep (${deepPercent}% of total). Cellular regeneration is optimal.`
-      });
-    }
-
-    // 4. Activity Strain & Workload Ratio
-    const latestWorkout = recentWorkouts[0];
-    let workoutAnalysis = 'No recent high-intensity workout recorded today.';
-    if (latestWorkout) {
-      workoutAnalysis = `Completed ${latestWorkout.title} (${latestWorkout.durationMinutes}m, avg HR ${latestWorkout.avgHeartRate} bpm, ${latestWorkout.calories} kcal). Good cardiac response in zone 3-4.`;
-    }
-
-    return {
-      recoveryScore: recoveryInfo.score,
-      recoveryTier: recoveryInfo.status,
-      advisory: recoveryInfo.advisory,
-      anomalies,
-      insights,
-      workoutSummary: workoutAnalysis,
-      timestamp: new Date().toLocaleTimeString()
-    };
+  get usesOpenAI() {
+    return !!this.settings.apiKey;
   }
 
-  /**
-   * Ask the AI Coach a custom health, workout, or telemetry question
-   */
-  async askCoach(userQuestion, telemetry, recoveryInfo) {
-    // If OpenAI API key is supplied, query OpenAI Codex / Chat API
-    if (this.apiKey) {
+  /** @returns {Promise<{ text: string, source: 'openai' | 'rules', error?: string }>} */
+  async askCoach(question, snapshot, recovery) {
+    const { apiKey, model } = this.settings;
+    if (apiKey) {
       try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`
-          },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model,
+            temperature: 0.4,
+            max_tokens: 400,
             messages: [
               {
                 role: 'system',
-                content: `You are OpenWear AI, an elite sports science and biometric telemetry expert. You analyze real-time multi-wearable data (Apple Health, Google Fit, Strava, Garmin, boAt). Keep responses concise, authoritative, and actionable.`
+                content:
+                  'You are OpenWear, a fitness and recovery assistant. Answer only from the data provided; say so when a metric is not available. Be concise and practical. You are not a doctor: for symptoms or abnormal readings, recommend seeing a clinician.'
               },
-              {
-                role: 'user',
-                content: `Context:
-Heart Rate: ${telemetry.vitals.heartRate} bpm (Resting: ${telemetry.vitals.restingHeartRate} bpm)
-HRV: ${telemetry.vitals.hrv} ms
-SpO2: ${telemetry.vitals.spo2}%
-Steps: ${telemetry.activity.steps}
-Sleep: ${Math.floor(telemetry.sleep.totalMinutes / 60)}h ${telemetry.sleep.totalMinutes % 60}m (Deep: ${telemetry.sleep.deepMinutes}m)
-Recovery Score: ${recoveryInfo.score}/100 (${recoveryInfo.status})
-Recent Workouts: ${JSON.stringify(telemetry.recentWorkouts)}
-
-User Question: ${userQuestion}`
-              }
-            ],
-            temperature: 0.6,
-            max_tokens: 350
+              { role: 'user', content: `Data:\n${describeSnapshot(snapshot, recovery)}\n\nQuestion: ${question}` }
+            ]
           })
         });
-
-        if (response.ok) {
-          const data = await response.json();
-          const reply = data.choices[0]?.message?.content;
-          if (reply) return reply;
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error?.message || `HTTP ${res.status}`);
         }
+        const data = await res.json();
+        const text = data.choices?.[0]?.message?.content;
+        if (text) return { text, source: 'openai' };
       } catch (err) {
-        console.warn('OpenAI API request failed, falling back to local heuristic model:', err);
+        return { text: this.rules(question, snapshot, recovery), source: 'rules', error: `OpenAI request failed: ${err.message}` };
       }
     }
-
-    // Local Intelligent Heuristic Fallback
-    return this.generateHeuristicResponse(userQuestion, telemetry, recoveryInfo);
+    return { text: this.rules(question, snapshot, recovery), source: 'rules' };
   }
 
-  /**
-   * Offline Heuristic Rule Engine (zero external API required)
-   */
-  generateHeuristicResponse(question, telemetry, recoveryInfo) {
+  /** Rule-based answers. Every number shown comes from the snapshot. */
+  rules(question, s, recovery) {
     const q = question.toLowerCase();
-    const { vitals, sleep, activity } = telemetry;
+    const { vitals: v, sleep, activity } = s;
 
-    if (q.includes('sleep') || q.includes('tired') || q.includes('rem') || q.includes('deep')) {
-      return `📊 **Sleep Architecture Analysis:**
-You logged ${Math.floor(sleep.totalMinutes / 60)}h ${sleep.totalMinutes % 60}m with ${sleep.deepMinutes}m deep sleep (${Math.round((sleep.deepMinutes / sleep.totalMinutes) * 100)}%) and ${sleep.remMinutes}m REM.
-Your sleep efficiency was ${sleep.efficiencyPercent}%. Sleep Score: **${sleep.sleepScore}/100**.
-💡 *Coach Recommendation:* With ${sleep.awakeMinutes}m awake time, your recovery is solid. Try dimming ambient lighting 45 mins before bedtime to extend deep wave onset.`;
+    if (!s.dayKey && !s.recentWorkouts.length) {
+      return 'No data yet. Import a source (Apple Health, Google Fit, Strava, GPX/TCX) or pair a Bluetooth heart rate device.';
     }
 
-    if (q.includes('train') || q.includes('workout') || q.includes('run') || q.includes('hard') || q.includes('recovery')) {
-      if (recoveryInfo.score >= 80) {
-        return `⚡ **Training Recommendation:**
-Your Recovery Score is **${recoveryInfo.score}/100 (Optimal)**!
-HRV is healthy at ${vitals.hrv}ms and resting HR is baseline (${vitals.restingHeartRate} bpm).
-💪 *Verdict:* Fully cleared for high-intensity intervals (Zone 4/5), tempo runs, or progressive overload strength sessions today.`;
-      } else {
-        return `⚠️ **Training Recommendation:**
-Your Recovery Score is **${recoveryInfo.score}/100 (${recoveryInfo.status})**.
-HRV indicates heightened physiological fatigue.
-🧘 *Verdict:* Opt for Zone 2 aerobic base work, mobility stretches, or a 30-minute recovery walk rather than threshold intervals.`;
-    }
-  }
-
-    if (q.includes('hrv') || q.includes('heart') || q.includes('pulse') || q.includes('spo2')) {
-      return `❤️ **Biometric Telemetry Breakdown:**
-- **Current HR:** ${vitals.heartRate} bpm
-- **Resting HR:** ${vitals.restingHeartRate} bpm (Normal target: 55-65 bpm)
-- **HRV (RMSSD):** ${vitals.hrv} ms (${vitals.hrv > 60 ? 'Optimal parasympathetic tone' : 'Moderate tone'})
-- **Blood Oxygen (SpO2):** ${vitals.spo2}% (${vitals.spo2 >= 98 ? 'Optimal arterial saturation' : 'Standard'})
-- **Stress Index:** ${vitals.stressIndex}/100 (Low-Moderate)`;
+    if (/sleep|tired|rem|deep/.test(q)) {
+      if (!sleep) return 'This source has no sleep data.';
+      const pct = (m) => (m == null ? null : Math.round((m / sleep.totalMinutes) * 100));
+      let out = `**Sleep:** ${hm(sleep.totalMinutes)}.`;
+      if (sleep.deepMinutes != null) out += ` Deep ${sleep.deepMinutes}m (${pct(sleep.deepMinutes)}%), REM ${sleep.remMinutes}m (${pct(sleep.remMinutes)}%).`;
+      out += sleep.totalMinutes < 420 ? '\nUnder 7 hours. Most adults need 7–9.' : '\nWithin the 7–9 hour range most adults need.';
+      return out;
     }
 
-    if (q.includes('python') || q.includes('code') || q.includes('export') || q.includes('sql') || q.includes('pandas')) {
-      return `\`\`\`python
-# OpenWear Telemetry Data Export -> Pandas DataFrame
-import pandas as pd
-import numpy as np
-
-telemetry_data = {
-    "timestamp": ["${new Date().toISOString()}"],
-    "heart_rate": [${vitals.heartRate}],
-    "hrv_ms": [${vitals.hrv}],
-    "spo2_pct": [${vitals.spo2}],
-    "steps": [${activity.steps}],
-    "recovery_score": [${recoveryInfo.score}]
-}
-
-df = pd.DataFrame(telemetry_data)
-df["hr_zone"] = pd.cut(df["heart_rate"], bins=[0, 100, 130, 155, 175, 220], 
-                       labels=["Rest", "Zone 1", "Zone 2", "Zone 3", "Zone 4+"])
-print(df.to_markdown())
-\`\`\`
-✨ *Generated via OpenWear Telemetry Schema.*`;
+    if (/train|workout|run|hard|recover|ready/.test(q)) {
+      if (!recovery) return 'Not enough data for a readiness estimate. It needs HRV, resting heart rate or sleep.';
+      return `**Readiness ${recovery.score}/100 — ${recovery.status}** (from ${recovery.basedOn.join(', ')}).\n${recovery.advisory}`;
     }
 
-    return `🎯 **OpenWear AI Synthesis:**
-Your current telemetry across connected devices indicates a **${recoveryInfo.score}/100 Recovery Score** with **${activity.steps.toLocaleString()} steps** recorded so far today.
-- **Heart Rate:** ${vitals.heartRate} bpm (Resting ${vitals.restingHeartRate} bpm)
-- **HRV:** ${vitals.hrv} ms
-- **Sleep Quality:** ${sleep.sleepScore}/100
+    if (/hrv|heart|pulse|spo2|oxygen/.test(q)) {
+      return [
+        `**Heart rate:** ${fmt(v.heartRate, ' bpm')}`,
+        `**Resting HR:** ${fmt(v.restingHeartRate, ' bpm')}${v.rhrBaseline ? ` (your 14-day average ${Math.round(v.rhrBaseline)})` : ''}`,
+        `**HRV${v.hrvMethod ? ` (${v.hrvMethod})` : ''}:** ${fmt(v.hrv, ' ms')}${v.hrvBaseline ? ` (your 14-day average ${Math.round(v.hrvBaseline)})` : ''}`,
+        `**SpO2:** ${fmt(v.spo2, '%')}`
+      ].join('\n');
+    }
 
-You can ask me to analyze sleep stages, check training readiness, or export telemetry code into Python/SQL!`;
+    if (/python|code|export|pandas|csv/.test(q)) {
+      return 'Use **Export data** in the footer to download everything as JSON. Load it in pandas with:\n```\nimport json, pandas as pd\nd = json.load(open("openwear-export.json"))\ndays = pd.DataFrame.from_dict(d["days"], orient="index")\n```';
+    }
+
+    return [
+      `**${s.deviceName}** — latest data ${s.dayKey ?? 'n/a'}`,
+      `Steps: ${fmt(activity.steps?.toLocaleString())}`,
+      `Resting HR: ${fmt(v.restingHeartRate, ' bpm')} · HRV: ${fmt(v.hrv, ' ms')}`,
+      `Sleep: ${hm(sleep?.totalMinutes)}`,
+      recovery ? `Readiness: ${recovery.score}/100` : 'Readiness: not enough data',
+      '',
+      'Ask about sleep, readiness, or heart rate. Add an OpenAI key in AI settings for free-form answers.'
+    ].join('\n');
   }
 }

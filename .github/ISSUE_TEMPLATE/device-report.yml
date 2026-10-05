@@ -1,0 +1,29 @@
+name: Device report
+description: Share a Watch Explorer report so a decoder can be written for your watch.
+title: "Device report: "
+labels: [device-report]
+body:
+  - type: input
+    id: model
+    attributes:
+      label: Watch brand and model
+      placeholder: boAt Wave Call 2
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: Phone app it normally uses
+      placeholder: boAt Crest / Da Fit / NoiseFit
+  - type: textarea
+    id: actions
+    attributes:
+      label: What you did on the watch while recording
+      placeholder: Started a heart-rate reading at ~5s, walked 20 steps at ~12s
+  - type: textarea
+    id: report
+    attributes:
+      label: Device report
+      description: Drag the downloaded openwear-device-report-*.json file here.
+    validations:
+      required: true

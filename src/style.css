@@ -744,3 +744,40 @@ canvas {
 .footer-links a:hover {
   color: var(--accent-cyan);
 }
+
+/* ==========================================================================
+   Sources, notices, forms
+   ========================================================================== */
+
+.device-chip { color: var(--text-primary); font-family: var(--font-sans); }
+.device-chip:not(.has-data) .pulse-dot { background-color: var(--text-muted); box-shadow: none; animation: none; }
+
+.source-panel { margin-bottom: 1.5rem; display: grid; gap: 0.75rem; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; }
+.source-panel h2 { color: var(--text-primary); font-size: 1.05rem; }
+.source-panel a { color: var(--accent-cyan); }
+.source-panel code { font-family: var(--font-mono); font-size: 0.82em; background: rgba(255, 255, 255, 0.06); padding: 0.1em 0.35em; border-radius: 4px; }
+.source-panel .steps { padding-left: 1.25rem; }
+.source-panel progress { width: 100%; accent-color: var(--accent-cyan); }
+
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.row .coach-input { flex: 1 1 180px; }
+.coach-input.small { flex: 0 0 auto; width: 4.5rem; }
+.file-btn { cursor: pointer; }
+.btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.muted { color: var(--text-muted); font-size: 0.82rem; }
+
+.notice { margin-bottom: 1rem; padding: 0.7rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); background: var(--bg-card); font-size: 0.88rem; color: var(--text-secondary); }
+.notice[data-kind='error'] { border-color: rgba(244, 63, 94, 0.5); color: #fda4af; }
+.notice[data-kind='success'] { border-color: rgba(16, 185, 129, 0.5); color: #6ee7b7; }
+
+.log-box { max-height: 220px; overflow: auto; padding: 0.75rem; border-radius: var(--radius-sm); background: rgba(0, 0, 0, 0.4); font-family: var(--font-mono); font-size: 0.75rem; white-space: pre-wrap; color: var(--text-secondary); }
+
+.ai-settings { padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--border-subtle); font-size: 0.82rem; color: var(--text-secondary); }
+.ai-settings summary { cursor: pointer; }
+.ai-settings form { display: grid; gap: 0.6rem; margin-top: 0.6rem; }
+.ai-settings label { display: grid; gap: 0.3rem; }
+
+@media (max-width: 640px) {
+  .header-actions .btn { padding: 0.5rem 0.7rem; font-size: 0.78rem; }
+  .footer-links { flex-wrap: wrap; }
+}

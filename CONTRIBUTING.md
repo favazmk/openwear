@@ -1,45 +1,33 @@
 # Contributing to OpenWear
 
-Thank you for your interest in contributing to **OpenWear**! We welcome contributions from developers, biometric researchers, and wearable enthusiasts worldwide.
+Thanks for helping. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Code of Conduct
+## Most useful contributions
 
-This project and everyone participating in it is governed by the [OpenWear Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
+1. **Device reports** for watches OpenWear can't read yet (see "Help decode your watch" in the README).
+2. **Decoders** that turn a device report's vendor messages into heart rate, steps or sleep.
+3. **Parser fixes** for real exports that don't import correctly. Please include a small, anonymized sample in `test/`.
+4. **New adapters** for other sources.
 
-## How Can I Contribute?
+## Adding an adapter
 
-### 1. Adding a New Wearable Adapter
-OpenWear is architected around a pluggable adapter model (`src/adapters/`). To add support for a new device (e.g., Whoop, Oura, Amazfit, Withings):
-1. Create a new adapter file extending `BaseAdapter`: `src/adapters/<brand>Adapter.js`.
-2. Implement required interfaces:
-   - `connect()`: Device handshake, OAuth2 flow, or BLE characteristic subscription.
-   - `fetchTelemetry()`: Ingest raw provider metrics.
-   - `normalize()`: Transform into the canonical `UnifiedHealthTelemetry` schema.
-   - `disconnect()`: Clean teardown and stream cancellation.
-3. Add unit tests verifying schema conformance.
-4. Submit a Pull Request!
+Adapters live in `src/adapters/` and extend `BaseAdapter`. An adapter's only job is to produce a normalized Dataset (see `src/schema/telemetrySchema.js`) and call `this.setDataset(dataset)`:
 
-### 2. Enhancing AI Health Models
-Our telemetry intelligence layer (`src/ai/telemetryCoach.js`) provides recovery prediction, anomaly detection, and training load synthesis. Contributions improving heuristic recovery scoring, LLM prompts, or synthetic data pipelines are warmly welcomed.
+- Put parsing in a pure function in `src/parsers/` (no DOM, no `window`) so it runs in `node --test`.
+- Never invent values. Unknown metrics stay `null`.
+- Expose import/connect methods (`importFile`, `importFiles`, `connect`, `sync`…) and wire them into the source panel in `src/main.js`.
+- Add tests in `test/`.
 
-### 3. Reporting Bugs
-- Use GitHub Issues to submit bug reports.
-- Include OS, browser version, device model, and console error logs.
+## Development
 
-## Development Workflow
+```bash
+npm install
+npm run dev
+npm test
+```
 
-1. Fork the repo and clone locally:
-   ```bash
-   git clone https://github.com/your-username/openwear.git
-   cd openwear
-   npm install
-   ```
-2. Start the local Vite development server:
-   ```bash
-   npm run dev
-   ```
-3. Commit using Conventional Commits:
-   ```bash
-   git commit -m "feat(adapter): add amazfit Zepp OS ble parser"
-   ```
-4. Push to your branch and open a PR against `main`.
+Use [Conventional Commits](https://www.conventionalcommits.org/) (`feat(parser): …`, `fix(ble): …`) and open PRs against `master`.
+
+## Reporting bugs
+
+Open an issue with your browser and OS, the source you were importing, and any console errors. Never attach your full health export. Cut it down to the few records that show the problem.

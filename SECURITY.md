@@ -1,16 +1,15 @@
 # Security Policy
 
-## Supported Versions
+## Supported versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
-| < 1.0   | :x:                |
+Only the latest release on `master` receives fixes.
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-The OpenWear team takes the security of our universal wearable telemetry hub seriously. If you discover a security vulnerability:
+Please don't open a public issue. Use GitHub's private vulnerability reporting: **Security → Report a vulnerability** on this repository. Include steps to reproduce and the impact.
 
-1. **Do not disclose the issue publicly.**
-2. Email your findings with a proof of concept to `security@openwear.dev` (or open a confidential security advisory on GitHub).
-3. We will acknowledge receipt of your vulnerability report within 48 hours and work with you on a patch release.
+You'll get a reply within a week. Fixes are released as soon as they're ready, and reporters are credited unless they prefer otherwise.
+
+## Scope notes
+
+OpenWear runs entirely in the browser. Strava credentials, Strava tokens and an optional OpenAI key are stored in `localStorage` on the user's own machine. Issues that let another site or an imported file read that data (for example XSS from a crafted GPX file) are in scope.

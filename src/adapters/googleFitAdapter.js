@@ -1,55 +1,27 @@
 /**
- * OpenWear - Google Fit & Health Connect Adapter
- * Normalizes Google Fit REST datasets and Android Health Connect permissions.
+ * OpenWear - Google Fit adapter (Google Takeout CSV import)
+ * See parsers/googleFitTakeout.js for why Takeout instead of the REST API.
  */
 
 import { BaseAdapter } from './baseAdapter.js';
-import { createTelemetryPacket } from '../schema/telemetrySchema.js';
+import { mergeGoogleFitCsv } from '../parsers/googleFitTakeout.js';
+import { DeviceProvider, emptyDataset } from '../schema/telemetrySchema.js';
 
 export class GoogleFitAdapter extends BaseAdapter {
   constructor() {
-    super('google_fit', 'Google Fit / Health Connect', '🟢');
+    super(DeviceProvider.GOOGLE_FIT, 'Google Fit (Takeout)', '🟢');
   }
 
-  async connect() {
-    this.isConnected = true;
-    this.activeDevice = 'Pixel Watch 3 / Health Connect';
-    this.lastSyncTime = new Date().toLocaleTimeString();
-    this.emitChange();
-    return { success: true, deviceName: this.activeDevice };
-  }
-
-  async fetchTelemetry() {
-    return createTelemetryPacket(this.providerId, this.activeDevice || 'Google Pixel Watch 2', {
-      heartRate: 75,
-      restingHeartRate: 64,
-      hrv: 54,
-      spo2: 97,
-      stressIndex: 38,
-      steps: 8930,
-      stepGoal: 10000,
-      distanceKm: 6.4,
-      activeCalories: 480,
-      activeMinutes: 44,
-      totalSleepMinutes: 430,
-      sleepScore: 81,
-      deepSleepMinutes: 85,
-      remSleepMinutes: 95,
-      lightSleepMinutes: 200,
-      awakeMinutes: 50,
-      recentWorkouts: [
-        {
-          id: 'gfit_w1',
-          title: 'Evening Power Walk',
-          type: 'Power Walk',
-          durationMinutes: 38,
-          avgHeartRate: 118,
-          maxHeartRate: 132,
-          calories: 195,
-          distanceKm: 3.8,
-          time: '6:15 PM'
-        }
-      ]
-    });
+  /** Import one or more CSVs from Takeout/Fit/Daily activity metrics/. */
+  async importFiles(files) {
+    let dataset = emptyDataset(this.providerId, this.providerName);
+    const csvs = [...files].filter((f) => /\.csv$/i.test(f.name));
+    if (!csvs.length) throw new Error('Choose the .csv files from Takeout/Fit/Daily activity metrics/.');
+    // Daily summary first so intraday files only fill gaps.
+    csvs.sort((a, b) => (/daily activity metrics/i.test(b.name) ? 1 : 0) - (/daily activity metrics/i.test(a.name) ? 1 : 0));
+    for (const f of csvs) dataset = mergeGoogleFitCsv(f.name, await f.text(), dataset);
+    if (!Object.keys(dataset.days).length) throw new Error('No daily rows found in those CSV files.');
+    this.setDataset(dataset);
+    return dataset;
   }
 }
