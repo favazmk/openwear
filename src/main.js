@@ -89,7 +89,7 @@ function renderApp() {
           <button id="btn-sync-all" class="btn btn-secondary">
             <span>🔄</span> Sync Providers
           </button>
-          <a href="https://github.com/favazmk/boat-watch" target="_blank" class="btn btn-outline" rel="noreferrer">
+          <a href="https://github.com/favazmk/openwear" target="_blank" class="btn btn-outline" rel="noreferrer">
             <span>⭐</span> GitHub OSS
           </a>
         </div>
@@ -297,7 +297,7 @@ function renderApp() {
           <strong>OpenWear</strong> — Open Source Universal Wearable & Health Telemetry Hub (MIT Licensed).
         </div>
         <div class="footer-links">
-          <a href="https://github.com/favazmk/boat-watch" target="_blank" rel="noreferrer">GitHub</a>
+          <a href="https://github.com/favazmk/openwear" target="_blank" rel="noreferrer">GitHub</a>
           <a href="https://openai.com/form/codex-for-oss/" target="_blank" rel="noreferrer">Codex for OSS</a>
           <a href="#docs">Documentation</a>
         </div>

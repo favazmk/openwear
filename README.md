@@ -11,7 +11,7 @@
 
 ## 🌐 Live Demo & Repository
 - **Live Application:** [https://openwear.dev](https://openwear.dev) *(or your deployed Vercel / Netlify URL)*
-- **GitHub Repository:** [https://github.com/favazmk/boat-watch](https://github.com/favazmk/boat-watch)
+- **GitHub Repository:** [https://github.com/favazmk/openwear](https://github.com/favazmk/openwear)
 
 ---
 
@@ -118,8 +118,8 @@ graph TD
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/favazmk/boat-watch.git
-cd boat-watch
+git clone https://github.com/favazmk/openwear.git
+cd openwear
 ```
 
 ### 2. Install dependencies
