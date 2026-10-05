@@ -32,17 +32,24 @@ let liveInterval = null;
 
 // Initial state bootstrap
 async function initApp() {
-  // Connect default boAt / BLE adapter
-  await adapters.generic_ble.connect(true);
-  await adapters.apple_health.connect();
-  await adapters.strava.connect();
-  await adapters.googleFitAdapter?.connect?.();
-
-  // Load telemetry
-  await switchProvider('generic_ble');
-
+  // 1. Render UI skeleton FIRST so DOM elements exist
   renderApp();
   setupEvents();
+
+  // 2. Connect default adapters
+  try {
+    await adapters.generic_ble.connect(true);
+    await adapters.apple_health.connect();
+    await adapters.strava.connect();
+    if (adapters.google_fit?.connect) {
+      await adapters.google_fit.connect();
+    }
+  } catch (err) {
+    console.warn('Adapter initialization warning:', err);
+  }
+
+  // 3. Load initial telemetry & populate DOM
+  await switchProvider('generic_ble');
   startLiveHeartRateSimulation();
 }
 
@@ -413,29 +420,38 @@ function updateUI() {
 
   const { vitals, activity, sleep, recentWorkouts } = currentTelemetry;
 
-  document.querySelector('#val-heart-rate').textContent = vitals.heartRate;
-  document.querySelector('#val-rhr').textContent = vitals.restingHeartRate;
-  document.querySelector('#val-hrv').textContent = vitals.hrv;
-  document.querySelector('#val-spo2').textContent = vitals.spo2;
-  document.querySelector('#val-steps').textContent = activity.steps.toLocaleString();
-  document.querySelector('#val-distance').textContent = activity.distanceKm;
-  document.querySelector('#val-calories').textContent = activity.activeCalories;
+  const setTxt = (sel, val) => {
+    const el = document.querySelector(sel);
+    if (el) el.textContent = val;
+  };
+
+  setTxt('#val-heart-rate', vitals.heartRate);
+  setTxt('#val-rhr', vitals.restingHeartRate);
+  setTxt('#val-hrv', vitals.hrv);
+  setTxt('#val-spo2', vitals.spo2);
+  setTxt('#val-steps', activity.steps.toLocaleString());
+  setTxt('#val-distance', activity.distanceKm);
+  setTxt('#val-calories', activity.activeCalories);
 
   // Recovery Score Gauge
   if (currentRecovery) {
-    document.querySelector('#recovery-score').textContent = currentRecovery.score;
+    setTxt('#recovery-score', currentRecovery.score);
     const badge = document.querySelector('#recovery-badge');
-    badge.textContent = currentRecovery.status;
-    badge.style.color = currentRecovery.color;
+    if (badge) {
+      badge.textContent = currentRecovery.status;
+      badge.style.color = currentRecovery.color;
+    }
 
     const advisory = document.querySelector('#recovery-advisory');
-    advisory.textContent = currentRecovery.advisory;
+    if (advisory) advisory.textContent = currentRecovery.advisory;
 
     // SVG Circle stroke-dashoffset: circumference = 2 * PI * 70 = 440
     const offset = 440 - (440 * currentRecovery.score) / 100;
     const ring = document.querySelector('#gauge-fill-ring');
-    ring.style.strokeDashoffset = offset;
-    ring.style.stroke = currentRecovery.color;
+    if (ring) {
+      ring.style.strokeDashoffset = offset;
+      ring.style.stroke = currentRecovery.color;
+    }
   }
 
   // Workouts Feed
