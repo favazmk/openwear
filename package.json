@@ -1,0 +1,28 @@
+{
+  "name": "openwear",
+  "version": "1.0.0",
+  "description": "Universal open-source wearable & health telemetry hub connecting Apple Health, Google Fit, Strava, Garmin, and BLE smartwatches with AI-driven biometric analytics.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "openwear",
+    "smartwatch",
+    "health-telemetry",
+    "apple-health",
+    "google-fit",
+    "strava",
+    "web-bluetooth",
+    "wearables",
+    "ai-health",
+    "codex-oss"
+  ],
+  "author": "Favaz",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^8.3.0"
+  }
+}
